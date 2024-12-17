@@ -11,7 +11,7 @@ CACHE_CONTROL = 2**16 - 1
 
 def calculate(
     expression: api.Expr, steps: list[str] = []
-) -> tuple[numbers.Real, list[str]]:
+) -> tuple[numbers.Real, list[api.Expression]]:
     """
     Function which calculates the result of an expression and returns the result and the steps taken to calculate it.
     The function recursively descends into the expression tree and calculates the result of the expression.
@@ -22,42 +22,39 @@ def calculate(
     if isinstance(expr, api.Constant) or isinstance(expr, api.NamedConstant):
         const = expr
     elif isinstance(expr, api.BinaryExpr):
-        left_steps: list[str] = []
-        right_steps: list[str] = []
+        left_steps, right_steps = [], []
         left, left_steps = calculate(expr.left_operand, left_steps)
         for step in left_steps[:-1]:
-            steps.append(str(api.BinaryExpr(step, expr.operator, expr.right_operand)))
-        right, right_steps = calculate(expr.right_operand, right_steps)
+            steps.append(api.BinaryExpr(step, expr.operator, expr.right_operand))
+        right, left_steps = calculate(expr.right_operand, right_steps)
         for step in right_steps[:-1]:
-            steps.append(str(api.BinaryExpr(left, expr.operator, step)))
-        steps.append(str(api.BinaryExpr(left, expr.operator, right)))
+            steps.append(api.BinaryExpr(left, expr.operator, step))
+        steps.append(api.BinaryExpr(left, expr.operator, right))
         const = api.Constant(expr.operator.function(left, right))
-        steps.append(str(const))
+        steps.append(const)
     elif isinstance(expr, api.UnaryExpr):
-        operand_steps: list[str] = []
+        operand_steps = []
         operand, operand_steps = calculate(expr.operand, operand_steps)
         for step in operand_steps[:-1]:
-            steps.append(str(api.UnaryExpr(expr.operator, step)))
-        steps.append(str(api.UnaryExpr(expr.operator, operand)))
+            steps.append(api.UnaryExpr(expr.operator, step))
+        steps.append(api.UnaryExpr(expr.operator, operand))
         const = api.Constant(expr.operator.function(operand))
-        steps.append(str(const))
+        steps.append(const)
     elif isinstance(expr, api.FunctionCallExpr):
         args = []
         for arg in expr.args:
-            arg_steps: list[str] = []
+            arg_steps = []
             arg, arg_steps = calculate(arg, arg_steps)
             for step in arg_steps[:-1]:
                 steps.append(
-                    str(
-                        api.FunctionCallExpr(
-                            expr.function, *(args + [step] + expr.args[len(args) + 1 :])
-                        )
+                    api.FunctionCallExpr(
+                        expr.function, *(args + [step] + expr.args[len(args) + 1 :])
                     )
                 )
             args.append(arg)
-        steps.append(str(api.FunctionCallExpr(expr.function, *args)))
+        steps.append(api.FunctionCallExpr(expr.function, *args))
         const = api.Constant(expr.function.function(*args))
-        steps.append(str(const))
+        steps.append(const)
     else:
         raise TypeError(f"Unknown expression type: {type(expr)}")
     return const.value, steps
@@ -99,7 +96,7 @@ def server(host: str, port: int) -> None:
         # Prepare the server socket
         # * Fill in start (1)
         server_socket.bind((host, port))
-        server_socket.listen(5)  # 5 is the maximum number of queued connections
+        server_socket.listen(5)
         # * Fill in end (1)
 
         threads = []
@@ -109,9 +106,9 @@ def server(host: str, port: int) -> None:
             try:
                 # Establish connection with client.
 
-                # * Fill in start (2)
-                client_socket, address = server_socket.accept()
-                # * Fill in end (2)
+                client_socket, address = (
+                    server_socket.accept()
+                )  # * Fill in start (2) # * Fill in end (2)
 
                 # Create a new thread to handle the client request
                 thread = threading.Thread(
@@ -136,15 +133,13 @@ def client_handler(
     client_addr = f"{client_address[0]}:{client_address[1]}"
     client_prefix = f"{{{client_addr}}}"
     with client_socket:  # closes the socket when the block is exited
-        print(f"Connection established with {client_addr}")
+        print(f"Conection established with {client_addr}")
         while True:
 
-            # * Fill in start (3)
-            data = client_socket.recv(1024)
-            # * Fill in end (3)
-
+            data = client_socket.recv(
+                api.BUFFER_SIZE
+            )  # * Fill in start (3) # * Fill in end (3)
             if not data:  # * Change in start (1)
-                print(f"{client_prefix} No data received. Closing connection.")
                 break
                 # * Change in end (1)
             try:
@@ -166,18 +161,19 @@ def client_handler(
                 )
 
                 # * Fill in start (4)
-                client_socket.sendall(packed_response)
+                client_socket.send(packed_response)
                 # * Fill in end (4)
 
             except Exception as e:
                 print(f"Unexpected server error: {e}")
-                error_response = api.CalculatorHeader.from_error(
-                    e,
-                    api.CalculatorHeader.STATUS_SERVER_ERROR,
-                    CACHE_POLICY,
-                    CACHE_CONTROL,
-                ).pack()
-                client_socket.sendall(error_response)
+                client_socket.sendall(
+                    api.CalculatorHeader.from_error(
+                        e,
+                        api.CalculatorHeader.STATUS_SERVER_ERROR,
+                        CACHE_POLICY,
+                        CACHE_CONTROL,
+                    ).pack()
+                )
 
             # * Change in start (2)
             print(f"{client_prefix} Connection closed")

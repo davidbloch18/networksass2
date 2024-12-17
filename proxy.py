@@ -63,24 +63,22 @@ def process_request(
             )
         server_socket.sendall(request.pack())
 
-        response_data = server_socket.recv(api.BUFFER_SIZE)
+        packed_response = server_socket.recv(api.BUFFER_SIZE)
 
         try:
-            unpacked_response = api.CalculatorHeader.unpack(response_data)
+            response = api.CalculatorHeader.unpack(packed_response)
         except Exception as e:
             raise api.CalculatorClientError(
                 f"Error while unpacking request: {e}"
             ) from e
 
-        if unpacked_response.is_request:
+        if response.is_request:
             raise TypeError("Received a request instead of a response")
 
         current_time = int(time.time())
-        age = current_time - unpacked_response.unix_time_stamp
+        age = current_time - response.unix_time_stamp
         res_cc = (
-            unpacked_response.cache_control
-            if unpacked_response.cache_control != INDEFINITE
-            else math.inf
+            response.cache_control if response.cache_control != INDEFINITE else math.inf
         )
         req_cc = (
             request.cache_control if request.cache_control != INDEFINITE else math.inf
@@ -90,10 +88,10 @@ def process_request(
         # Cache the response if all sides agree to cache it
         if (
             request.cache_result
-            and unpacked_response.cache_result
+            and response.cache_result
             and (server_time_remaining > 0 and client_time_remaining > 0)
         ):
-            cache[(data, request.show_steps)] = unpacked_response
+            cache[(data, request.show_steps)] = response
             cached = True
 
     return (
@@ -118,7 +116,7 @@ def proxy(proxy_address: tuple[str, int], server_adress: tuple[str, int]) -> Non
         # Prepare the proxy socket
         # * Fill in start (1)
         proxy_socket.bind(proxy_address)
-        proxy_socket.listen(5)  # 5 is the maximum number of queued connections
+        proxy_socket.listen(5)
         # * Fill in end (1)
 
         threads = []
@@ -161,10 +159,12 @@ def client_handler(
         while True:
             # Receive data from the client
 
-            data = client_socket.recv(1023)  # * Fill in start (3) # * Fill in end (3)
+            data = client_socket.recv(
+                api.BUFFER_SIZE
+            )  # * Fill in start (3) # * Fill in end (3)
 
             if not data:  # * Change in start (1)
-                print(f"{client_prefix} No data received. Closing connection.")
+                print(f"{client_prefix} Connection closed")
                 break
                 # * Change in end (1)
             try:
@@ -206,7 +206,7 @@ def client_handler(
 
                 # Send the response back to the client
                 # * Fill in start (4)
-                client_socket.sendall(packed_response)
+                client_socket.send(packed_response)
                 # * Fill in end (4)
 
             except Exception as e:

@@ -68,20 +68,20 @@ def client(
         print(f"{server_prefix} Connection established")
 
         try:
-            request_header = api.CalculatorHeader.from_expression(
+            request = api.CalculatorHeader.from_expression(
                 expression, show_steps, cache_result, cache_control
             )
 
-            packed_request = request_header.pack()
+            packed_request = request.pack()
             print(
                 f"{server_prefix} Sending request of length {len(packed_request)} bytes"
             )
             client_socket.sendall(packed_request)
 
-            response = client_socket.recv(api.BUFFER_SIZE)
-            print(f"{server_prefix} Got response of length {len(response)} bytes")
-            response_header = api.CalculatorHeader.unpack(response)
-            process_response(response_header)
+            response_data = client_socket.recv(api.BUFFER_SIZE)
+            print(f"{server_prefix} Got response of length {len(response_data)} bytes")
+            response = api.CalculatorHeader.unpack(response_data)
+            process_response(response)
 
         except api.CalculatorError as e:
             print(f"{server_prefix} Got error: {str(e)}")
@@ -124,6 +124,14 @@ if __name__ == "__main__":
         default=2**16 - 1,
         help="The maximum age of the cached response that the client is willing to accept (in seconds).",
     )
+    arg_parser.add_argument(
+        "-e",
+        "--expression",
+        type=int,
+        choices=range(1, 7),
+        required=True,
+        help="Select the expression to calculate (1-6).",
+    )
 
     args = arg_parser.parse_args()
 
@@ -134,18 +142,9 @@ if __name__ == "__main__":
     cache_control = args.cache_control
 
     # * Change in start (1)
-    arg_parser.add_argument(
-        "-e",
-        "--expression",
-        type=int,
-        choices=range(1, 7),
-        required=True,
-        help="Choose an expression number (1-6).",
-    )
-    # Example expressions: (uncomment one of them for your needs)
-    # (1) '(sin(max(2, 3 * 4, 5, 6 * ((7 * 8) / 9), 10 / 11)) / 12) * 13' = -0.38748277824137206
-    if args.expression == 1:
-        expr = mul_b(
+    # Define each expression as a function
+    def expr1():
+        return mul_b(
             div_b(
                 sin_f(
                     max_f(
@@ -159,23 +158,30 @@ if __name__ == "__main__":
                 12,
             ),
             13,
-        )  # (1)
+        )
 
-    # (2) '(max(2, 3) + 3)' = 6
-    elif args.expression == 2:
-        expr = add_b(max_f(2, 3), 3)  # (2)
-    elif args.expression == 3:
-        # (3) '3 + ((4 * 2) / ((1 - 5) ** (2 ** 3)))' = 3.0001220703125
-        expr = add_b(3, div_b(mul_b(4, 2), pow_b(sub_b(1, 5), pow_b(2, 3))))  # (3)
-    elif args.expression == 4:
-        # (4) '((1 + 2) ** (3 * 4)) / (5 * 6)' = 17714.7
-        expr = div_b(pow_b(add_b(1, 2), mul_b(3, 4)), mul_b(5, 6))  # (4)
-    elif args.expression == 5:
-        # (5) '-(-((1 + (2 + 3)) ** -(4 + 5)))' = 9.92290301275212e-08
-        expr = neg_u(neg_u(pow_b(add_b(1, add_b(2, 3)), neg_u(add_b(4, 5)))))  # (5)
-    elif args.expression == 6:
-        # (6) 'max(2, (3 * 4), log(e), (6 * 7), (9 / 8))' = 42
-        expr = max_f(2, mul_b(3, 4), log_f(e_c), mul_b(6, 7), div_b(9, 8))  # (6)
+    def expr2():
+        return add_b(max_f(2, 3), 3)
+
+    def expr3():
+        return add_b(3, div_b(mul_b(4, 2), pow_b(sub_b(1, 5), pow_b(2, 3))))
+
+    def expr4():
+        return div_b(pow_b(add_b(1, 2), mul_b(3, 4)), mul_b(5, 6))
+
+    def expr5():
+        return neg_u(neg_u(pow_b(add_b(1, add_b(2, 3)), neg_u(add_b(4, 5)))))
+
+    def expr6():
+        return max_f(2, mul_b(3, 4), log_f(e_c), mul_b(6, 7), div_b(9, 8))
+
+    # Store the functions in a list
+    expressions = [expr1, expr2, expr3, expr4, expr5, expr6]
+
+    # Now select the expression based on user input
+    if args.expression in range(1, 7):
+        expr = expressions[args.expression - 1]()  # Call the corresponding function
+
     # * Change in end (1)
 
     # Change the following values according to your needs:
