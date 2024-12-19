@@ -175,13 +175,30 @@ if __name__ == "__main__":
     def expr6():
         return max_f(2, mul_b(3, 4), log_f(e_c), mul_b(6, 7), div_b(9, 8))
 
-    # Store the functions in a list
-    expressions = [expr1, expr2, expr3, expr4, expr5, expr6]
+    server_address = (host, port)
+    print("Client started. Type 'exit' to quit.\n")
+    while True:
+        user_input = (
+            input("Enter the expression number (1-6) or 'exit': ").strip().lower()
+        )
 
-    # Now select the expression based on user input
-    if args.expression in range(1, 7):
-        expr = expressions[args.expression - 1]()  # Call the corresponding function
+        # Check for exit command
+        if user_input == "exit":
+            print("Exiting client. Goodbye!")
+            break
+        if not user_input.isdigit() or not (1 <= int(user_input) <= 6):
+            print("Invalid input. Please enter a number between 1 and 6.")
+            continue
+        # Get the selected expression
+        expression_number = int(user_input)
+        expressions = [expr1, expr2, expr3, expr4, expr5, expr6]
+        expression = expressions[expression_number - 1]()  # Call the function
 
+        # Process the expression
+        try:
+            client(server_address, expression, show_steps, cache_result, cache_control)
+        except Exception as e:
+            print(f"An error occurred: {e}")
     # * Change in end (1)
 
     # Change the following values according to your needs:
