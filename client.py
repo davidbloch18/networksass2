@@ -175,6 +175,11 @@ if __name__ == "__main__":
     def expr6():
         return max_f(2, mul_b(3, 4), log_f(e_c), mul_b(6, 7), div_b(9, 8))
 
+    show_steps = True  # Request the steps of the calculation
+    cache_result = True  # Request to cache the result of the calculation
+    # If the result is cached, this is the maximum age of the cached response
+    # that the client is willing to accept (in seconds)
+    cache_control = 2**16 - 1
     server_address = (host, port)
     print("Client started. Type 'exit' to quit.\n")
     while True:
@@ -203,12 +208,5 @@ if __name__ == "__main__":
 
     # Change the following values according to your needs:
 
-    show_steps = True  # Request the steps of the calculation
-    cache_result = True  # Request to cache the result of the calculation
-    # If the result is cached, this is the maximum age of the cached response
-    # that the client is willing to accept (in seconds)
-    cache_control = 2**16 - 1
-
     # * Change in start (2)
-    client((host, port), expr, show_steps, cache_result, cache_control)
     # * Change in end (2)
